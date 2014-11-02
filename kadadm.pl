@@ -102,6 +102,20 @@ sub snmp_create_session() {
     ) or die "kadadm: cannot create SNMP session\n";
 }
 
+sub snmp_wait_kad() {
+    my $c = 0;
+    my $vb = new SNMP::Varbind(['KEEPALIVED-MIB::version', 0]);
+    # Wait 18 times for 10 seconds (3 mins) for keepalived to register its MIB
+    while () {
+        my $kad_version = $snmp_session->get($vb);
+        snmp_die_on_error();
+        return if ($kad_version ne 'NOSUCHOBJECT');
+        last if ($c++ > 17 );
+        sleep(10);
+    }
+    die "kadadm: timed out waiting for keepalived to register MIB\n";
+}
+
 sub snmp_die_on_error() {
     if ($snmp_session->{'ErrorNum'}) {
         die("kadadm: SNMP error: " . $snmp_session->{'ErrorStr'} . "\n");
@@ -109,6 +123,7 @@ sub snmp_die_on_error() {
 }
 
 sub snmp_get_table($) {
+    snmp_wait_kad();
     my $table = $snmp_session->gettable(shift);
     snmp_die_on_error();
     print Dumper($table) if $debug;
@@ -116,6 +131,7 @@ sub snmp_get_table($) {
 }
 
 sub snmp_set_value($$$) {
+    snmp_wait_kad();
     my ($object, $instance, $value) = @_;
     my $vars = new SNMP::Varbind([$object, $instance, $value]);
     print Dumper($vars) if $debug;
