@@ -132,7 +132,7 @@ sub show_virtual_routers($) {
 
     my $fmt = "%-3s %-12s %-12s %-4s %-8s %-4s %-4s %-7s %-9s %-7s\n";
 
-    foreach my $i (keys $table) {
+    while (my ($i, $row) = each $table) {
         next if ( $vr and $vr ne $i );
 
         printf($fmt, 'VR#', 'NAME', 'GROUP', 'VRID', 'IFACE', 'BPRI', 'EPRI',
@@ -142,15 +142,15 @@ sub show_virtual_routers($) {
 
         printf($fmt,
             $i,
-            $table->{$i}->{'vrrpInstanceName'},
-            $table->{$i}->{'vrrpInstanceSyncGroup'} || '-',
-            $table->{$i}->{'vrrpInstanceVirtualRouterId'},
-            $table->{$i}->{'vrrpInstancePrimaryInterface'},
-            $table->{$i}->{'vrrpInstanceBasePriority'},
-            $table->{$i}->{'vrrpInstanceEffectivePriority'},
-            $table->{$i}->{'vrrpInstancePreempt'} == 1 ? 'yes' : 'no',
-            $table->{$i}->{'vrrpInstanceVipsStatus'} == 1 ? 'allSet' : 'notAllSet',
-            $states{$table->{$i}->{'vrrpInstanceState'}} || '?',
+            $row->{'vrrpInstanceName'},
+            $row->{'vrrpInstanceSyncGroup'} || '-',
+            $row->{'vrrpInstanceVirtualRouterId'},
+            $row->{'vrrpInstancePrimaryInterface'},
+            $row->{'vrrpInstanceBasePriority'},
+            $row->{'vrrpInstanceEffectivePriority'},
+            $row->{'vrrpInstancePreempt'} == 1 ? 'yes' : 'no',
+            $row->{'vrrpInstanceVipsStatus'} == 1 ? 'allSet' : 'notAllSet',
+            $states{$row->{'vrrpInstanceState'}} || '?',
         );
     }
 
@@ -166,7 +166,7 @@ sub show_virtual_addresses($) {
 
     my $fmt = "%-5s %-15s %-6s %-8s %-6s\n";
 
-    foreach my $i (keys $table) {
+    while (my ($i, $row) = each $table) {
         next if ( $vr and $vr ne $i );
 
         printf($fmt, 'VA#', 'ADDRESS', 'PREFIX', 'IFACE', 'STATUS')
@@ -176,10 +176,10 @@ sub show_virtual_addresses($) {
 
         printf($fmt,
             $i,
-            hex2ip($table->{$i}->{'vrrpAddressValue'}),
-            $table->{$i}->{'vrrpAddressMask'},
-            $table->{$i}->{'vrrpAddressIfName'},
-            $table->{$i}->{'vrrpAddressStatus'} == 1 ? 'set' : 'unset',
+            hex2ip($row->{'vrrpAddressValue'}),
+            $row->{'vrrpAddressMask'},
+            $row->{'vrrpAddressIfName'},
+            $row->{'vrrpAddressStatus'} == 1 ? 'set' : 'unset',
         );
     }
 
@@ -195,7 +195,7 @@ sub show_virtual_servers($) {
 
     my $fmt = "%-3s %-15s %-5s %-6s %-6s %-6s %-8s %-8s %-8s %-8s %-8s\n";
 
-    foreach my $i (keys $table) {
+    while (my ($i, $row) = each $table) {
         next if ( $vs and $vs ne $i );
 
         printf($fmt, 'VS#', 'ADDRESS', 'PORT', 'STATUS', 'TOT_RS', 'UP_RS',
@@ -205,16 +205,16 @@ sub show_virtual_servers($) {
 
         printf($fmt,
             $i,
-            hex2ip($table->{$i}->{'virtualServerAddress'}),
-            $table->{$i}->{'virtualServerPort'},
-            $table->{$i}->{'virtualServerStatus'} == 1 ? 'alive' : 'dead',
-            $table->{$i}->{'virtualServerRealServersTotal'},
-            $table->{$i}->{'virtualServerRealServersUp'},
-            humanize_count($table->{$i}->{'virtualServerRateCps'}),
-            humanize_count($table->{$i}->{'virtualServerRateInPPS'}),
-            humanize_count($table->{$i}->{'virtualServerRateOutPPS'}),
-            humanize_bytes($table->{$i}->{'virtualServerRateInBPS'}),
-            humanize_bytes($table->{$i}->{'virtualServerRateOutBPS'}),
+            hex2ip($row->{'virtualServerAddress'}),
+            $row->{'virtualServerPort'},
+            $row->{'virtualServerStatus'} == 1 ? 'alive' : 'dead',
+            $row->{'virtualServerRealServersTotal'},
+            $row->{'virtualServerRealServersUp'},
+            humanize_count($row->{'virtualServerRateCps'}),
+            humanize_count($row->{'virtualServerRateInPPS'}),
+            humanize_count($row->{'virtualServerRateOutPPS'}),
+            humanize_bytes($row->{'virtualServerRateInBPS'}),
+            humanize_bytes($row->{'virtualServerRateOutBPS'}),
         );
     }
 
@@ -230,8 +230,7 @@ sub show_real_servers($) {
 
     my $fmt = "%-5s %-15s %-5s %-6s %-6s %-9s %-11s %-8s %-8s %-8s %-8s %-8s\n";
 
-    foreach my $i (keys $table) {
-
+    while (my ($i, $row) = each $table) {
         next if ( $rs and $rs ne $i );
 
         printf($fmt, 'VS#', 'ADDRESS', 'PORT', 'WEIGHT', 'STATUS', 
@@ -242,17 +241,17 @@ sub show_real_servers($) {
 
         printf($fmt, 
             $i,
-            hex2ip($table->{$i}->{'realServerAddress'}),
-            $table->{$i}->{'realServerPort'},
-            $table->{$i}->{'realServerWeight'},
-            $table->{$i}->{'realServerStatus'} == 1 ? 'alive' : 'dead',
-            $table->{$i}->{'realServerStatsActiveConns'},
-            $table->{$i}->{'realServerStatsInactiveConns'},
-            humanize_count($table->{$i}->{'realServerRateCps'}),
-            humanize_count($table->{$i}->{'realServerRateInPPS'}),
-            humanize_count($table->{$i}->{'realServerRateOutPPS'}),
-            humanize_bytes($table->{$i}->{'realServerRateInBPS'}),
-            humanize_bytes($table->{$i}->{'realServerRateOutBPS'}),
+            hex2ip($row->{'realServerAddress'}),
+            $row->{'realServerPort'},
+            $row->{'realServerWeight'},
+            $row->{'realServerStatus'} == 1 ? 'alive' : 'dead',
+            $row->{'realServerStatsActiveConns'},
+            $row->{'realServerStatsInactiveConns'},
+            humanize_count($row->{'realServerRateCps'}),
+            humanize_count($row->{'realServerRateInPPS'}),
+            humanize_count($row->{'realServerRateOutPPS'}),
+            humanize_bytes($row->{'realServerRateInBPS'}),
+            humanize_bytes($row->{'realServerRateOutBPS'}),
         );
     }
 
@@ -301,9 +300,9 @@ sub start_exabgp_healthcheck() {
         my $table = snmp_get_table('KEEPALIVED-MIB::vrrpAddressTable');
         my $address_statuses = {};
 
-        foreach my $i (keys $table) {
-            my $address = hex2ip($table->{$i}->{'vrrpAddressValue'});
-            my $status = $table->{$i}->{'vrrpAddressStatus'} == 1 ? 'set' : 'unset';
+        while (my ($i, $row) = each $table) {
+            my $address = hex2ip($row->{'vrrpAddressValue'});
+            my $status = $row->{'vrrpAddressStatus'} == 1 ? 'set' : 'unset';
 
             if ( not exists $address_statuses_prev->{$address} ) {
                 # New address found, mark it as unset
