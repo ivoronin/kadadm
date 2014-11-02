@@ -311,6 +311,9 @@ sub start_exabgp_healthcheck() {
         command(shift, 'withdraw');
     }
 
+    # Enable autoflush
+    $| = 1;
+
     my $address_statuses_prev = {};
 
     while () {
