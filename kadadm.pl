@@ -143,7 +143,7 @@ sub show_virtual_routers($) {
         printf($fmt,
             $i,
             $table->{$i}->{'vrrpInstanceName'},
-            $table->{$i}->{'vrrpInstanceSyncGroup'},
+            $table->{$i}->{'vrrpInstanceSyncGroup'} || '-',
             $table->{$i}->{'vrrpInstanceVirtualRouterId'},
             $table->{$i}->{'vrrpInstancePrimaryInterface'},
             $table->{$i}->{'vrrpInstanceBasePriority'},
