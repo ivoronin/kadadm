@@ -299,7 +299,6 @@ sub set_real_server_weight($$) {
 sub start_exabgp_healthcheck() {
     sub command($$) {
         my ($address, $status) = @_;
-	sleep(1);
         printf("%s route %s/32 next-hop self\n", $status, $address);
     }
 
