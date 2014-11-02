@@ -71,9 +71,9 @@ sub humanize_bytes($) {
     return humanize(shift, 1024, [' ', 'K', 'M', 'G', 'T']);
 }
 
-# Reads configuration file ~/.kadadmrc and updates $config with new values
+# Reads configuration file ~/.kadadm.conf or /etc/kadadm.conf and updates $config with new values
 sub config_read() {
-    open(CONFIG, $ENV{'HOME'} . '/.kadadmrc') or return;
+    open(CONFIG, $ENV{'HOME'} . '/.kadadm.conf') or open(CONFIG, '/etc/kadadm.conf') or return;
     while ( my $line = <CONFIG> ) {
         chomp($line);
         next if ($line =~ /^#/);
@@ -299,6 +299,7 @@ sub set_real_server_weight($$) {
 sub start_exabgp_healthcheck() {
     sub command($$) {
         my ($address, $status) = @_;
+	sleep(1);
         printf("%s %s/32 next-hop self\n", $status, $address);
     }
 
@@ -309,7 +310,7 @@ sub start_exabgp_healthcheck() {
     sub withdraw($) {
         command(shift, 'withdraw');
     }
-        
+
     my $address_statuses_prev = {};
 
     while () {
@@ -500,7 +501,7 @@ Do not print headers
 
 =head1 CONFIGURATION FILE FORMAT
 
-kadadm(8) looks for configuration file in F<~/.kadadmrc>. File format is very simple - each line contains a I<parameter> and a I<value> separated by a space (C< >), lines starting with a pound sign (C<#>) are comments, and are ignored. The possible parameters are as follows:
+kadadm(8) looks for configuration file in F<~/.kadadm.conf> and F</etc/kadadm.conf>. File format is very simple - each line contains a I<parameter> and a I<value> separated by a space (C< >), lines starting with a pound sign (C<#>) are comments, and are ignored. The possible parameters are as follows:
 
 =over 4
 
@@ -588,7 +589,8 @@ The following guide is valid for Red Hat Enterprise Linux 7.0 and its derivative
 
 =head1 FILES
 
-F<~/.kadadmrc>
+F<~/.kadadm.conf>
+F</etc/kadadm.conf>
 
 =head1 SEE ALSO
 
