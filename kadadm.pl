@@ -300,7 +300,7 @@ sub start_exabgp_healthcheck() {
     sub command($$) {
         my ($address, $status) = @_;
 	sleep(1);
-        printf("%s %s/32 next-hop self\n", $status, $address);
+        printf("%s route %s/32 next-hop self\n", $status, $address);
     }
 
     sub announce($) {
