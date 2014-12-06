@@ -1,6 +1,6 @@
-#Download: https://github.com/ivoronin/kadadm/archive/v1.1.1.tar.gz
+#Download: https://github.com/ivoronin/kadadm/archive/v1.1.2.tar.gz
 
-%define version 1.1.1
+%define version 1.1.2
 Name:		kadadm
 Version:	%{version}
 Release:	1%{?dist}
