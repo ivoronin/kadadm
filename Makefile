@@ -13,8 +13,8 @@ clean:
 	rm -f kadadm.8
 
 install: kadadm.8
-	install -D -o root -g root -m 0755 kadadm.pl $(DESTDIR)/bin/kadadm
-	install -D -o root -g root -m 0644 kadadm.8 $(DESTDIR)/share/man/man8/kadadm.8
+	install -D -m 0755 kadadm.pl $(DESTDIR)/bin/kadadm
+	install -D -m 0644 kadadm.8 $(DESTDIR)/share/man/man8/kadadm.8
 
 uninstall:
 	rm -f $(DESTDIR)/bin/kadadm
