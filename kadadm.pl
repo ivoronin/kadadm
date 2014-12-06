@@ -146,7 +146,7 @@ sub show_virtual_routers($) {
 
     my $table = snmp_get_table('KEEPALIVED-MIB::vrrpInstanceTable') or goto out;
 
-    my $fmt = "%-3s %-12s %-12s %-4s %-8s %-4s %-4s %-7s %-9s %-7s\n";
+    my $fmt = "%-3s %-12s %-12s %-4s %-12s %-4s %-4s %-7s %-9s %-7s\n";
 
     while (my ($i, $row) = each $table) {
         next if ( $vr and $vr ne $i );
@@ -180,7 +180,7 @@ sub show_virtual_addresses($) {
 
     my $table = snmp_get_table('KEEPALIVED-MIB::vrrpAddressTable') or goto out;
 
-    my $fmt = "%-5s %-15s %-6s %-8s %-6s\n";
+    my $fmt = "%-5s %-15s %-6s %-12s %-6s\n";
 
     while (my ($i, $row) = each $table) {
         next if ( $vr and $vr ne $i );
