@@ -1,6 +1,5 @@
-#Download: https://github.com/ivoronin/kadadm/archive/v1.1.2.tar.gz
+%define debug_package %{nil}
 
-%define version 1.1.2
 Name:		kadadm
 Version:	%{version}
 Release:	1%{?dist}

@@ -1,3 +1,6 @@
+VERSION=1.2
+RELEASE=1
+SOURCES=$(HOME)/rpmbuild/SOURCES
 DESTDIR=/usr/local
 
 all: man
@@ -19,3 +22,9 @@ install: kadadm.8
 uninstall:
 	rm -f $(DESTDIR)/bin/kadadm
 	rm -f $(DESTDIR)/share/man/man8/kadadm.8
+
+targz:
+	tar --xform "s@^@kadadm-${VERSION}/@" -czf ${SOURCES}/kadadm-${VERSION}.tar.gz .
+
+rpm:	targz
+	rpmbuild --quiet -D "release ${RELEASE}" -D "version ${VERSION}" -bb kadadm.spec
