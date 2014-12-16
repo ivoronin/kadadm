@@ -296,68 +296,12 @@ sub set_real_server_weight($$) {
     snmp_set_value('KEEPALIVED-MIB::realServerWeight', $rs, $weight);
 }
 
-sub start_exabgp_healthcheck() {
-    sub command($$) {
-        my ($address, $status) = @_;
-        printf("%s route %s/32 next-hop self\n", $status, $address);
-    }
-
-    sub announce($) {
-        command(shift, 'announce');
-    }
-
-    sub withdraw($) {
-        command(shift, 'withdraw');
-    }
-
-    # Enable autoflush
-    $| = 1;
-
-    my $address_statuses_prev = {};
-
-    while () {
-        my $table = snmp_get_table('KEEPALIVED-MIB::vrrpAddressTable');
-        my $address_statuses = {};
-
-        while (my ($i, $row) = each $table) {
-            my $address = hex2ip($row->{'vrrpAddressValue'});
-            my $status = $row->{'vrrpAddressStatus'} == 1 ? 'set' : 'unset';
-
-            if ( not exists $address_statuses_prev->{$address} ) {
-                # New address found, mark it as unset
-                $address_statuses->{$address} = 'unset';
-            } else {
-                # Address was present at the previous run, copy its status
-                $address_statuses->{$address} = $address_statuses_prev->{$address};
-            }
-
-            if ($status ne $address_statuses->{$address}) {
-                # Status differs from previous one
-                $status eq 'set' ? announce($address) : withdraw($address);
-                $address_statuses->{$address} = $status;
-            }
-        }
-
-        # Check for disappeared addresses
-        while (my ($address, $status) = each $address_statuses_prev) {
-            if ( (not exists $address_statuses->{$address}) and ($status eq 'set')) {
-                # Address is not present anymore but it was announced, we need to withdraw it
-                withdraw($address);
-            }
-        }
-
-        $address_statuses_prev = $address_statuses;
-        sleep(1);
-    }
-}
-
 sub main() {
     # Managed objects
     my $virtual_router;
     my $virtual_address;
     my $virtual_server;
     my $real_server;
-    my $exabgp_healthcheck;
 
     # Parameter and value
     my $parameter;
@@ -375,9 +319,6 @@ sub main() {
         'virtual-servers|e:s' => \$virtual_server,
         'real-servers|i:s' => \$real_server,
 
-        # ExaBGP healthcheck mode
-        'exabgp-healthcheck|b' => \$exabgp_healthcheck,
-
         # Parameter and value
         'parameter|p=s' => \$parameter,
         'value|v=s' => \$value,
@@ -387,8 +328,7 @@ sub main() {
     if ( not (defined $virtual_router xor
             defined $virtual_address xor 
             defined $virtual_server xor 
-            defined $real_server xor
-            (defined $exabgp_healthcheck xor ($parameter or $value))) ) {
+            defined $real_server) ) {
         pod2usage('Missing or conflicting options');
     }
 
@@ -396,10 +336,6 @@ sub main() {
     snmp_create_session();
 
     pod2usage('Wrong number of arguments') if ($#ARGV != -1);
-
-    if ( $exabgp_healthcheck ) {
-        start_exabgp_healthcheck();
-    }
 
     if ( not (defined $parameter or defined $value) ) {
         # List
@@ -443,7 +379,6 @@ kadadm - Keepalived administration
  kadadm -r <vr> -p priority -v <0-255> [-VDH]
  kadadm -r <vr> -p preempt -v <yes|no> [-VDH]
  kadadm -i <rs> -p weight -v <0-65535> [-VDH]
- kadadm -b
 
 =head1 DESCRIPTION
 
@@ -474,10 +409,6 @@ List virtual servers
 =item B<-i, --real-servers>
 
 List or modify real servers
-
-=item B<-b, --exabgp-healthcheck>
-
-Watch for virtual address status changes
 
 =item B<-p, --parameter>
 
