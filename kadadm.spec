@@ -2,7 +2,7 @@
 
 Name:		kadadm
 Version:	%{version}
-Release:	1%{?dist}
+Release:	%{release}%{?dist}
 Summary:	Keepalived administration tool
 
 Group:		System Environment/Tools
