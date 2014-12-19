@@ -1,0 +1,3 @@
+[submodule "rpm-mk"]
+	path = rpm-mk
+	url = https://github.com/ivoronin/rpm-mk.git

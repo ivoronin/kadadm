@@ -1,5 +1,3 @@
-%define debug_package %{nil}
-
 Name:		kadadm
 Version:	%{version}
 Release:	%{release}%{?dist}
