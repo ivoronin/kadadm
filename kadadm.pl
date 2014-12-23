@@ -96,6 +96,7 @@ sub snmp_create_session() {
         'AuthPass' => $config->{'snmp_authkey'},
         'PrivPass' => $config->{'snmp_privkey'}
     };
+    print Dumper($snmp_options) if $debug;
 
     $snmp_session = new SNMP::Session(
         %$snmp_options
@@ -120,6 +121,16 @@ sub snmp_die_on_error() {
     if ($snmp_session->{'ErrorNum'}) {
         die("kadadm: SNMP error: " . $snmp_session->{'ErrorStr'} . "\n");
     }
+}
+
+sub snmp_get_value($$) {
+    snmp_wait_kad();
+    my ($object, $instance) = @_;
+    my $vars = new SNMP::Varbind([$object, $instance]);
+    print Dumper($vars) if $debug;
+    my $value = $snmp_session->get($vars);
+    snmp_die_on_error();
+    return $value;
 }
 
 sub snmp_get_table($) {
@@ -238,6 +249,12 @@ out:
     die("No virtual servers found\n") if not $found;
 }
 
+sub show_status() {
+    my $version = snmp_get_value('KEEPALIVED-MIB::version', 0);
+    my $router_id = snmp_get_value('KEEPALIVED-MIB::routerId', 0);
+    print "$version on $router_id is running\n";
+}
+
 sub show_real_servers($) {
     my $rs = shift; # Real server index
     my $found = 0;
@@ -306,6 +323,7 @@ sub main() {
     # Parameter and value
     my $parameter;
     my $value;
+    my $status;
 
     GetOptions(
         # Global flags
@@ -318,6 +336,7 @@ sub main() {
         'virtual-addresses|a:s' => \$virtual_address,
         'virtual-servers|e:s' => \$virtual_server,
         'real-servers|i:s' => \$real_server,
+        'status|S' => \$status,
 
         # Parameter and value
         'parameter|p=s' => \$parameter,
@@ -328,7 +347,8 @@ sub main() {
     if ( not (defined $virtual_router xor
             defined $virtual_address xor 
             defined $virtual_server xor 
-            defined $real_server) ) {
+            defined $real_server xor
+            defined $status) ) {
         pod2usage('Missing or conflicting options');
     }
 
@@ -343,6 +363,7 @@ sub main() {
         show_virtual_addresses($virtual_address) if ( defined $virtual_address );
         show_virtual_servers($virtual_server) if ( defined $virtual_server );
         show_real_servers($real_server) if ( defined $real_server );
+        show_status() if ( defined $status );
     } else {
         # Modify
         if ( not (defined $parameter and defined $value) ) {
