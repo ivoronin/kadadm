@@ -8,7 +8,7 @@ License:	GPLv2
 URL:		https://github.com/ivoronin/kadadm
 Source0:	%{name}-%{version}.tar.gz
 
-Requires:	perl, perl-Net-SNMP
+Requires:	perl, perl-Net-SNMP, keepalived
 BuildRequires:	redhat-rpm-config, perl
 
 %description
