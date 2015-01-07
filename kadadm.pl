@@ -17,7 +17,7 @@ use Data::Dumper;
 use Pod::Usage;
 use SNMP;
 
-$main::VERSION = '2.1';
+$main::VERSION = '2.1.1';
 
 # Data::Dumper options
 $Data::Dumper::Pad = 'DEBUG: ';
@@ -348,13 +348,13 @@ sub set_virtual_router_master($) {
 
             # Perform sanity checks
             if ( $state != 1 ) {
-                die("Virtual router $vr is not in a backup state");
+                die("Virtual router $vr is not in a backup state\n");
             }
             if ( $pri == 255 ) {
-                die("Virtual router $vr priority is already at maximum");
+                die("Virtual router $vr priority is already at maximum\n");
             }
             if ( $preempt == 1 ) {
-                die("Virtual router $vr is not in a nopreempt mode");
+                die("Virtual router $vr is not in a nopreempt mode\n");
             }
 
             # Set base priority to maximum value and set preempt to yes
@@ -373,7 +373,7 @@ sub set_virtual_router_master($) {
 
             my $new_state = snmp_get_value('KEEPALIVED-MIB::vrrpInstanceState', $i);
             if ( $new_state != 2 ) {
-                die("Virtual router $vr failed to become master");
+                die("Virtual router $vr failed to become master\n");
             }
 
             $found++;
@@ -431,7 +431,7 @@ sub main() {
         # Parameter and value
         'priority|p=s' => \$priority,
         'preempt|P=s' => \$preempt,
-        'weight|v=s' => \$weight,
+        'weight|w=s' => \$weight,
 
         'make-master|M' => \$master,
         'hostname|N=s' => \$hostname,
