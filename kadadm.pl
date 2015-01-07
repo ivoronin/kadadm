@@ -361,6 +361,8 @@ sub main() {
     my $preempt;
     my $weight;
 
+    my $hostname;
+
     GetOptions(
         # Global flags
         'verbose|V' => \$verbose,
@@ -377,6 +379,8 @@ sub main() {
         'priority|p=s' => \$priority,
         'preempt|P=s' => \$preempt,
         'weight|v=s' => \$weight,
+
+        'hostname|N=s' => \$hostname,
     ) or pod2usage();
 
     # Exactly one object should be specified
@@ -389,9 +393,14 @@ sub main() {
     }
 
     config_read();
-    snmp_create_session();
 
     pod2usage('Wrong number of arguments') if ($#ARGV != -1);
+
+    if ( defined $hostname ) {
+        $config->{'snmp_hostname'} = $hostname;
+    }
+
+    snmp_create_session();
 
     if ( ( defined $priority or defined $preempt ) and not defined $virtual_router ) {
         pod2usage('Conflicting options');
@@ -438,10 +447,10 @@ kadadm - Keepalived administration
 
 =head1 SYNOPSIS
 
- kadadm <-r [vr]|-a [vr]|-e [vs]|-i [rs]> [-VDH]
- kadadm -r <vr> -p <0-255> [-VDH]
- kadadm -r <vr> -P <yes|no> [-VDH]
- kadadm -i <rs> -w <0-65535> [-VDH]
+ kadadm [-N hostname] <-r [vr]|-a [vr]|-e [vs]|-i [rs]> [-VDH]
+ kadadm [-N hostname] -r <vr> -p <0-255> [-VDH]
+ kadadm [-N hostname] -r <vr> -P <yes|no> [-VDH]
+ kadadm [-N hostname] -i <rs> -w <0-65535> [-VDH]
 
 =head1 DESCRIPTION
 
@@ -456,6 +465,10 @@ more details.
 =head1 OPTIONS
 
 =over 4
+
+=item B<-N, --hostname>
+
+Keepalived server hostname to connect to (default is localhost)
 
 =item B<-r, --virtual-routers>
 
