@@ -17,7 +17,7 @@ use Data::Dumper;
 use Pod::Usage;
 use SNMP;
 
-$main::VERSION = '0.1';
+$main::VERSION = '2.1';
 
 # Data::Dumper options
 $Data::Dumper::Pad = 'DEBUG: ';
@@ -25,6 +25,7 @@ $Data::Dumper::Indent = 1;
 $Data::Dumper::Terse = 1;
 
 # GetOpt::Long options
+Getopt::Long::Configure('posix_default');
 Getopt::Long::Configure('no_ignore_case');
 Getopt::Long::Configure('auto_help');
 Getopt::Long::Configure('auto_version');
@@ -332,6 +333,57 @@ out:
     die("Virtual router $vr not found\n") if not $found;
 }
 
+sub set_virtual_router_master($) {
+    my $vr = shift;
+    my $found = 0;
+
+    my $table = snmp_get_table('KEEPALIVED-MIB::vrrpInstanceTable') or goto out;
+
+    while (my ($i, $row) = each $table) {
+        my $name = $row->{'vrrpInstanceName'};
+        if ( $name eq $vr ) {
+            my $state = $row->{'vrrpInstanceState'};
+            my $pri = $row->{'vrrpInstanceBasePriority'};
+            my $preempt = $row->{'vrrpInstancePreempt'};
+
+            # Perform sanity checks
+            if ( $state != 1 ) {
+                die("Virtual router $vr is not in a backup state");
+            }
+            if ( $pri == 255 ) {
+                die("Virtual router $vr priority is already at maximum");
+            }
+            if ( $preempt == 1 ) {
+                die("Virtual router $vr is not in a nopreempt mode");
+            }
+
+            # Set base priority to maximum value and set preempt to yes
+            snmp_set_value('KEEPALIVED-MIB::vrrpInstanceBasePriority', $i, 255);
+            snmp_set_value('KEEPALIVED-MIB::vrrpInstancePreempt', $i, 1);
+
+            # Failover should occur
+            sleep(5);
+
+            # Revert everything back
+            snmp_set_value('KEEPALIVED-MIB::vrrpInstanceBasePriority', $i, $pri);
+            snmp_set_value('KEEPALIVED-MIB::vrrpInstancePreempt', $i, 2);
+
+            # Lets wait things to settle down a bit
+            sleep(5);
+
+            my $new_state = snmp_get_value('KEEPALIVED-MIB::vrrpInstanceState', $i);
+            if ( $new_state != 2 ) {
+                die("Virtual router $vr failed to become master");
+            }
+
+            $found++;
+            last;
+        }
+    }
+out:
+    die("Virtual router $vr not found\n") if not $found;
+}
+
 sub set_real_server_weight($$) {
     my ($rs, $weight) = @_;
     my $found = 0;
@@ -360,6 +412,7 @@ sub main() {
     my $priority;
     my $preempt;
     my $weight;
+    my $master;
 
     my $hostname;
 
@@ -380,6 +433,7 @@ sub main() {
         'preempt|P=s' => \$preempt,
         'weight|v=s' => \$weight,
 
+        'make-master|M' => \$master,
         'hostname|N=s' => \$hostname,
     ) or pod2usage();
 
@@ -402,7 +456,11 @@ sub main() {
 
     snmp_create_session();
 
-    if ( ( defined $priority or defined $preempt ) and not defined $virtual_router ) {
+    if ( ( defined $priority or defined $preempt or defined $master) and not defined $virtual_router ) {
+        pod2usage('Conflicting options');
+    }
+
+    if ( ( defined $priority or defined $preempt ) and defined $master ) {
         pod2usage('Conflicting options');
     }
 
@@ -412,6 +470,10 @@ sub main() {
 
     if ( defined $priority ) {
         set_virtual_router_priority($virtual_router, $priority);
+    }
+
+    if ( defined $master ) {
+        set_virtual_router_master($virtual_router);
     }
 
     if ( defined $preempt ) {
@@ -428,7 +490,7 @@ sub main() {
         set_real_server_weight($real_server, $weight);
     }
 
-    if ( not (defined $priority or defined $preempt or defined $weight) ) {
+    if ( not (defined $priority or defined $preempt or defined $weight or defined $master) ) {
         # List
         show_virtual_routers($virtual_router) if ( defined $virtual_router );
         show_virtual_addresses($virtual_address) if ( defined $virtual_address );
@@ -450,6 +512,7 @@ kadadm - Keepalived administration
  kadadm [-N hostname] <-r [vr]|-a [vr]|-e [vs]|-i [rs]> [-VDH]
  kadadm [-N hostname] -r <vr> -p <0-255> [-VDH]
  kadadm [-N hostname] -r <vr> -P <yes|no> [-VDH]
+ kadadm [-N hostname] -r <vr> -M [-VDH]
  kadadm [-N hostname] -i <rs> -w <0-65535> [-VDH]
 
 =head1 DESCRIPTION
@@ -493,6 +556,10 @@ Virtual router priority
 =item B<-P, --preempt>
 
 Virtual router preempt setting
+
+=item B<-M, --make-master>
+
+Make virtual router master. This options expects nopreempt mode to be enabled on all physical routers.
 
 =item B<-w, --weight>
 
