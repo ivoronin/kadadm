@@ -160,7 +160,8 @@ sub show_virtual_routers($) {
     my $fmt = "%-3s %-12s %-12s %-4s %-12s %-4s %-4s %-7s %-9s %-7s\n";
 
     while (my ($i, $row) = each $table) {
-        next if ( $vr and $vr ne $i );
+        my $name = $row->{'vrrpInstanceName'};
+        next if ( $vr and $vr ne $name );
 
         printf($fmt, 'VR#', 'NAME', 'GROUP', 'VRID', 'IFACE', 'BPRI', 'EPRI',
             'PREEMPT', 'ADDRESSES', 'STATE') if $headers and not $found;
@@ -169,7 +170,7 @@ sub show_virtual_routers($) {
 
         printf($fmt,
             $i,
-            $row->{'vrrpInstanceName'},
+            $name,
             $row->{'vrrpInstanceSyncGroup'} || '-',
             $row->{'vrrpInstanceVirtualRouterId'},
             $row->{'vrrpInstancePrimaryInterface'},
@@ -194,7 +195,8 @@ sub show_virtual_addresses($) {
     my $fmt = "%-5s %-15s %-6s %-12s %-6s\n";
 
     while (my ($i, $row) = each $table) {
-        next if ( $vr and $vr ne $i );
+        my $address = hex2ip($row->{'vrrpAddressValue'});
+        next if ( $vr and $vr ne $address );
 
         printf($fmt, 'VA#', 'ADDRESS', 'PREFIX', 'IFACE', 'STATUS')
             if $headers and not $found;
@@ -203,7 +205,7 @@ sub show_virtual_addresses($) {
 
         printf($fmt,
             $i,
-            hex2ip($row->{'vrrpAddressValue'}),
+            $address,
             $row->{'vrrpAddressMask'},
             $row->{'vrrpAddressIfName'},
             $row->{'vrrpAddressStatus'} == 1 ? 'set' : 'unset',
@@ -220,20 +222,20 @@ sub show_virtual_servers($) {
 
     my $table = snmp_get_table('KEEPALIVED-MIB::virtualServerTable') or goto out;
 
-    my $fmt = "%-3s %-15s %-5s %-6s %-6s %-6s %-8s %-8s %-8s %-8s %-8s\n";
+    my $fmt = "%-3s %-22s %-6s %-6s %-6s %-8s %-8s %-8s %-8s %-8s\n";
 
     while (my ($i, $row) = each $table) {
-        next if ( $vs and $vs ne $i );
+        my $addressport = hex2ip($row->{'virtualServerAddress'}) . ":" . $row->{'virtualServerPort'};
+        next if ( $vs and $vs ne $addressport );
 
-        printf($fmt, 'VS#', 'ADDRESS', 'PORT', 'STATUS', 'TOT_RS', 'UP_RS',
+        printf($fmt, 'VS#', 'ADDRESS:PORT', 'STATUS', 'TOT_RS', 'UP_RS',
             'CPS', 'IPPS', 'OPPS', 'IBPS', 'OBPS') if $headers and not $found;
 
         $found++;
 
         printf($fmt,
             $i,
-            hex2ip($row->{'virtualServerAddress'}),
-            $row->{'virtualServerPort'},
+            $addressport,
             $row->{'virtualServerStatus'} == 1 ? 'alive' : 'dead',
             $row->{'virtualServerRealServersTotal'},
             $row->{'virtualServerRealServersUp'},
@@ -261,12 +263,13 @@ sub show_real_servers($) {
 
     my $table = snmp_get_table('KEEPALIVED-MIB::realServerTable') or goto out;
 
-    my $fmt = "%-5s %-15s %-5s %-6s %-6s %-9s %-11s %-8s %-8s %-8s %-8s %-8s\n";
+    my $fmt = "%-5s %-22s %-6s %-6s %-9s %-11s %-8s %-8s %-8s %-8s %-8s\n";
 
     while (my ($i, $row) = each $table) {
-        next if ( $rs and $rs ne $i );
+        my $addressport = hex2ip($row->{'realServerAddress'}) . ":" . $row->{'realServerPort'};
+        next if ( $rs and $rs ne $addressport );
 
-        printf($fmt, 'VS#', 'ADDRESS', 'PORT', 'WEIGHT', 'STATUS', 
+        printf($fmt, 'VS#', 'ADDRESS:PORT', 'WEIGHT', 'STATUS',
                 'ACT_CONNS', 'INACT_CONNS', 'CPS', 'IPPS', 'OPPS',
                 'IBPS', 'OBPS') if $headers and not $found;
 
@@ -274,8 +277,7 @@ sub show_real_servers($) {
 
         printf($fmt, 
             $i,
-            hex2ip($row->{'realServerAddress'}),
-            $row->{'realServerPort'},
+            $addressport,
             $row->{'realServerWeight'},
             $row->{'realServerStatus'} == 1 ? 'alive' : 'dead',
             $row->{'realServerStatsActiveConns'},
@@ -294,36 +296,70 @@ out:
 
 sub set_virtual_router_priority($$) {
     my ($vr, $pri) = @_;
-    snmp_set_value('KEEPALIVED-MIB::vrrpInstanceBasePriority', $vr, $pri);
+    my $found = 0;
+
+    my $table = snmp_get_table('KEEPALIVED-MIB::vrrpInstanceTable') or goto out;
+
+    while (my ($i, $row) = each $table) {
+        my $name = $row->{'vrrpInstanceName'};
+        if ( $name eq $vr ) {
+            snmp_set_value('KEEPALIVED-MIB::vrrpInstanceBasePriority', $i, $pri);
+            $found++;
+            last;
+        }
+    }
+
+out:
+    die("Virtual router $vr not found\n") if not $found;
 }
 
 sub set_virtual_router_preempt($$) {
     my ($vr, $preempt) = @_;
-    if ( $preempt eq 'yes' ) {
-        snmp_set_value('KEEPALIVED-MIB::vrrpInstancePreempt', $vr, 1);
-    } elsif ( $preempt eq 'no' ) {
-        snmp_set_value('KEEPALIVED-MIB::vrrpInstancePreempt', $vr, 2);
-    } else {
-        pod2usage('preempt value should be "yes" or "no"');
+    my $found = 0;
+
+    my $table = snmp_get_table('KEEPALIVED-MIB::vrrpInstanceTable') or goto out;
+
+    while (my ($i, $row) = each $table) {
+        my $name = $row->{'vrrpInstanceName'};
+        if ( $name eq $vr ) {
+            snmp_set_value('KEEPALIVED-MIB::vrrpInstancePreempt', $i, $preempt);
+            $found++;
+            last;
+        }
     }
+
+out:
+    die("Virtual router $vr not found\n") if not $found;
 }
 
 sub set_real_server_weight($$) {
     my ($rs, $weight) = @_;
-    snmp_set_value('KEEPALIVED-MIB::realServerWeight', $rs, $weight);
+    my $found = 0;
+
+    my $table = snmp_get_table('KEEPALIVED-MIB::realServerTable') or goto out;
+    while (my ($i, $row) = each $table) {
+        my $addressport = hex2ip($row->{'realServerAddress'}) . ":" . $row->{'realServerPort'};
+        if ( $addressport eq $rs ) {
+            snmp_set_value('KEEPALIVED-MIB::realServerWeight', $i, $weight);
+            $found++;
+            last;
+        }
+    }
+out:
+    die("Real server $rs not found\n") if not $found;
 }
 
 sub main() {
-    # Managed objects
     my $virtual_router;
     my $virtual_address;
     my $virtual_server;
     my $real_server;
-
-    # Parameter and value
-    my $parameter;
-    my $value;
     my $status;
+
+    # Parameters
+    my $priority;
+    my $preempt;
+    my $weight;
 
     GetOptions(
         # Global flags
@@ -331,7 +367,6 @@ sub main() {
         'debug|D' => \$debug,
         'noheaders|H' => sub { $headers = 0 },
 
-        # Managed objects
         'virtual-routers|r:s' => \$virtual_router,
         'virtual-addresses|a:s' => \$virtual_address,
         'virtual-servers|e:s' => \$virtual_server,
@@ -339,8 +374,9 @@ sub main() {
         'status|S' => \$status,
 
         # Parameter and value
-        'parameter|p=s' => \$parameter,
-        'value|v=s' => \$value,
+        'priority|p=s' => \$priority,
+        'preempt|P=s' => \$preempt,
+        'weight|v=s' => \$weight,
     ) or pod2usage();
 
     # Exactly one object should be specified
@@ -357,33 +393,39 @@ sub main() {
 
     pod2usage('Wrong number of arguments') if ($#ARGV != -1);
 
-    if ( not (defined $parameter or defined $value) ) {
+    if ( ( defined $priority or defined $preempt ) and not defined $virtual_router ) {
+        pod2usage('Conflicting options');
+    }
+
+    if ( defined $weight and not defined $real_server ) {
+        pod2usage('Conflicting options');
+    }
+
+    if ( defined $priority ) {
+        set_virtual_router_priority($virtual_router, $priority);
+    }
+
+    if ( defined $preempt ) {
+        if ( $preempt eq 'yes' ) {
+            set_virtual_router_preempt($virtual_router, 1);
+        } elsif ( $preempt eq 'no' ) {
+            set_virtual_router_preempt($virtual_router, 2);
+        } else {
+            pod2usage('preempt value should be "yes" or "no"');
+        }
+    }
+
+    if ( defined $weight ) {
+        set_real_server_weight($real_server, $weight);
+    }
+
+    if ( not (defined $priority or defined $preempt or defined $weight) ) {
         # List
         show_virtual_routers($virtual_router) if ( defined $virtual_router );
         show_virtual_addresses($virtual_address) if ( defined $virtual_address );
         show_virtual_servers($virtual_server) if ( defined $virtual_server );
         show_real_servers($real_server) if ( defined $real_server );
         show_status() if ( defined $status );
-    } else {
-        # Modify
-        if ( not (defined $parameter and defined $value) ) {
-            pod2usage('Both parameter and value should be specified');
-        }
-
-        if ( not ($virtual_router xor $virtual_address xor
-                $virtual_server xor $real_server) ) {
-            pod2usage('Missing option value');
-        }
-
-        if ( $virtual_router and $parameter eq 'priority' ) {
-            set_virtual_router_priority($virtual_router, $value);
-        } elsif ( $virtual_router and $parameter eq 'preempt' ) {
-            set_virtual_router_preempt($virtual_router, $value);
-        } elsif ( $real_server and $parameter eq 'weight' ) {
-            set_real_server_weight($real_server, $value);
-        } else {
-            pod2usage('Unknown parameter name');
-        }
     }
 }
 
@@ -397,9 +439,9 @@ kadadm - Keepalived administration
 =head1 SYNOPSIS
 
  kadadm <-r [vr]|-a [vr]|-e [vs]|-i [rs]> [-VDH]
- kadadm -r <vr> -p priority -v <0-255> [-VDH]
- kadadm -r <vr> -p preempt -v <yes|no> [-VDH]
- kadadm -i <rs> -p weight -v <0-65535> [-VDH]
+ kadadm -r <vr> -p <0-255> [-VDH]
+ kadadm -r <vr> -P <yes|no> [-VDH]
+ kadadm -i <rs> -w <0-65535> [-VDH]
 
 =head1 DESCRIPTION
 
@@ -431,13 +473,17 @@ List virtual servers
 
 List or modify real servers
 
-=item B<-p, --parameter>
+=item B<-p, --priority>
 
-Name of the parameter to set
+Virtual router priority
 
-=item B<-v, --value>
+=item B<-P, --preempt>
 
-Value of the parameter to set
+Virtual router preempt setting
+
+=item B<-w, --weight>
+
+Real server weight
 
 =item B<-V, --verbose>
 
@@ -501,9 +547,9 @@ Lists all virtual routers
 
 Lists virtual router I<1>
 
-=item B<kadadm -r >I<1>B< -p priority -v >I<200>
+=item B<kadadm -r >I<EXT>B< -p >I<200>
 
-Sets priority of a virtual router I<1> to I<200>
+Sets priority of a virtual router I<EXT> to I<200>
 
 =back
 
